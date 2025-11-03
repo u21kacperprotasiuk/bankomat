@@ -1,19 +1,31 @@
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.text.MaskFormatter;
 import java.awt.*;
-import java.awt.event.*;
 import java.io.*;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
+// ---- Klasa Konto ----
 class Konto implements Serializable {
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
+
     String numerKarty;
     String pin;
     double saldo;
+    java.util.List<String> historia; // jawne użycie java.util.List
 
     public Konto(String numerKarty, String pin, double saldo) {
         this.numerKarty = numerKarty;
         this.pin = pin;
         this.saldo = saldo;
+        this.historia = new java.util.ArrayList<>();
+    }
+
+    private void ensureHistoria() {
+        if (historia == null) historia = new java.util.ArrayList<>();
     }
 
     public boolean sprawdzPin(String podanyPin) {
@@ -21,19 +33,40 @@ class Konto implements Serializable {
     }
 
     public void wplata(double kwota) {
+        ensureHistoria();
         saldo += kwota;
+        historia.add("💰 Wpłata: +" + kwota + " zł | Saldo: " + saldo);
     }
 
-    public boolean wyplata(double kwota) {
+    public boolean wyplata(double kwota, String nominals) {
+        ensureHistoria();
         if (kwota <= saldo) {
             saldo -= kwota;
+            historia.add("💸 Wypłata: -" + kwota + " zł | " + nominals + " | Saldo: " + saldo);
             return true;
         }
         return false;
     }
 
+    public void przelew(double kwota, String odbiorca) {
+        ensureHistoria();
+        saldo -= kwota;
+        historia.add("📤 Przelew: -" + kwota + " zł → " + odbiorca + " | Saldo: " + saldo);
+    }
+
+    public void otrzymajPrzelew(double kwota, String nadawca) {
+        ensureHistoria();
+        saldo += kwota;
+        historia.add("📥 Przelew: +" + kwota + " zł od " + nadawca + " | Saldo: " + saldo);
+    }
+
     public double getSaldo() {
         return saldo;
+    }
+
+    public java.util.List<String> getHistoria() {
+        ensureHistoria();
+        return historia;
     }
 
     public String getNumerKarty() {
@@ -41,45 +74,83 @@ class Konto implements Serializable {
     }
 }
 
+// ---- Klasa Bankomat ----
 public class BANKOMAT extends JFrame {
     private static final long serialVersionUID = 1L;
 
     private Map<String, Konto> konta;
     private Konto aktualneKonto;
-    private JTextField poleKarta;
+
+    private JFormattedTextField poleKarta;
     private JPasswordField polePin;
     private JLabel statusLabel;
+    private JLabel saldoLabel;
+    private JTextArea historiaArea;
+
     private JPanel panelLogowania;
     private JPanel panelMenu;
 
     private static final String PLIK_STANU = "atm_state.ser";
+    private static final int[] NOMINALY = {500, 200, 100, 50, 20, 10};
 
     public BANKOMAT() {
-        setTitle("Symulator Bankomatu");
-        setSize(400, 300);
+        setTitle("💳 Symulator Bankomatu");
+        setSize(520, 420);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+        setResizable(false);
         wczytajStan();
         utworzPanelLogowania();
     }
 
+    // ----------------- PANEL LOGOWANIA -----------------
     private void utworzPanelLogowania() {
-        panelLogowania = new JPanel(new GridLayout(4, 1));
-        panelLogowania.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panelLogowania = new JPanel();
+        panelLogowania.setLayout(new BoxLayout(panelLogowania, BoxLayout.Y_AXIS));
+        panelLogowania.setBorder(new EmptyBorder(20, 40, 20, 40));
+        panelLogowania.setBackground(new Color(30, 30, 40));
 
-        poleKarta = new JTextField();
+        JLabel tytul = new JLabel("💰 Witaj w Bankomacie");
+        tytul.setForeground(Color.WHITE);
+        tytul.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        tytul.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel kartaLabel = new JLabel("Numer karty:");
+        kartaLabel.setForeground(Color.LIGHT_GRAY);
+        JLabel pinLabel = new JLabel("PIN:");
+        pinLabel.setForeground(Color.LIGHT_GRAY);
+
+        try {
+            MaskFormatter maska = new MaskFormatter("####-####-####-####");
+            maska.setPlaceholderCharacter('_');
+            poleKarta = new JFormattedTextField(maska);
+        } catch (Exception e) {
+            poleKarta = new JFormattedTextField();
+        }
+
         polePin = new JPasswordField();
-        JButton przyciskZaloguj = new JButton("Zaloguj");
-        statusLabel = new JLabel(" ", SwingConstants.CENTER);
 
-        panelLogowania.add(new JLabel("Numer karty:"));
-        panelLogowania.add(poleKarta);
-        panelLogowania.add(new JLabel("PIN:"));
-        panelLogowania.add(polePin);
-        panelLogowania.add(przyciskZaloguj);
-        panelLogowania.add(statusLabel);
+        JButton przyciskZaloguj = new JButton("Zaloguj");
+        przyciskZaloguj.setBackground(new Color(60, 130, 250));
+        przyciskZaloguj.setForeground(Color.WHITE);
+        przyciskZaloguj.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+        statusLabel = new JLabel(" ", SwingConstants.CENTER);
+        statusLabel.setForeground(Color.ORANGE);
 
         przyciskZaloguj.addActionListener(e -> zaloguj());
+
+        panelLogowania.add(tytul);
+        panelLogowania.add(Box.createVerticalStrut(15));
+        panelLogowania.add(kartaLabel);
+        panelLogowania.add(poleKarta);
+        panelLogowania.add(Box.createVerticalStrut(10));
+        panelLogowania.add(pinLabel);
+        panelLogowania.add(polePin);
+        panelLogowania.add(Box.createVerticalStrut(15));
+        panelLogowania.add(przyciskZaloguj);
+        panelLogowania.add(Box.createVerticalStrut(10));
+        panelLogowania.add(statusLabel);
 
         setContentPane(panelLogowania);
         revalidate();
@@ -91,40 +162,86 @@ public class BANKOMAT extends JFrame {
 
         if (konta.containsKey(karta) && konta.get(karta).sprawdzPin(pin)) {
             aktualneKonto = konta.get(karta);
+            zapiszStan();
             pokazMenu();
         } else {
-            statusLabel.setText("Błędny numer karty lub PIN!");
+            statusLabel.setText("❌ Błędny numer karty lub PIN!");
         }
     }
 
+    // ----------------- PANEL MENU -----------------
     private void pokazMenu() {
-        panelMenu = new JPanel(new GridLayout(6, 1, 10, 10));
-        panelMenu.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panelMenu = new JPanel(new BorderLayout(10, 10));
+        panelMenu.setBorder(new EmptyBorder(15, 15, 15, 15));
+        panelMenu.setBackground(new Color(245, 247, 250));
 
-        JButton saldoBtn = new JButton("Sprawdź saldo");
-        JButton wplataBtn = new JButton("Wpłata");
-        JButton wyplataBtn = new JButton("Wypłata");
-        JButton przelewBtn = new JButton("Przelew");
-        JButton wylogujBtn = new JButton("Wyloguj");
+        saldoLabel = new JLabel("💵 Saldo: " + String.format("%.2f", aktualneKonto.getSaldo()) + " zł", SwingConstants.CENTER);
+        saldoLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        saldoLabel.setForeground(new Color(0, 128, 0));
 
-        saldoBtn.addActionListener(e -> pokazSaldo());
+        historiaArea = new JTextArea();
+        historiaArea.setEditable(false);
+        historiaArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        odswiezHistorie();
+
+        JScrollPane scroll = new JScrollPane(historiaArea);
+        scroll.setBorder(BorderFactory.createTitledBorder("📜 Historia transakcji"));
+
+        JPanel przyciskiPanel = new JPanel(new GridLayout(2, 2, 15, 15));
+        przyciskiPanel.setBackground(new Color(245, 247, 250));
+
+        JButton wplataBtn = new JButton("Wpłata 💰");
+        JButton wyplataBtn = new JButton("Wypłata 💸");
+        JButton przelewBtn = new JButton("Przelew 💱");
+        JButton wylogujBtn = new JButton("Wyloguj 🚪");
+
+        for (JButton b : new JButton[]{wplataBtn, wyplataBtn, przelewBtn, wylogujBtn}) {
+            b.setFocusPainted(false);
+            b.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            b.setBackground(new Color(60, 130, 250));
+            b.setForeground(Color.WHITE);
+        }
+
         wplataBtn.addActionListener(e -> wykonajWplate());
         wyplataBtn.addActionListener(e -> wykonajWyplate());
         przelewBtn.addActionListener(e -> wykonajPrzelew());
         wylogujBtn.addActionListener(e -> wyloguj());
 
-        panelMenu.add(saldoBtn);
-        panelMenu.add(wplataBtn);
-        panelMenu.add(wyplataBtn);
-        panelMenu.add(przelewBtn);
-        panelMenu.add(wylogujBtn);
+        przyciskiPanel.add(wplataBtn);
+        przyciskiPanel.add(wyplataBtn);
+        przyciskiPanel.add(przelewBtn);
+        przyciskiPanel.add(wylogujBtn);
+
+        panelMenu.add(saldoLabel, BorderLayout.NORTH);
+        panelMenu.add(przyciskiPanel, BorderLayout.CENTER);
+        panelMenu.add(scroll, BorderLayout.SOUTH);
 
         setContentPane(panelMenu);
         revalidate();
     }
 
-    private void pokazSaldo() {
-        JOptionPane.showMessageDialog(this, "Saldo: " + aktualneKonto.getSaldo() + " zł");
+    private void odswiezSaldo() {
+        saldoLabel.setText("💵 Saldo: " + String.format("%.2f", aktualneKonto.getSaldo()) + " zł");
+    }
+
+    private void odswiezHistorie() {
+        historiaArea.setText("");
+        for (String wpis : aktualneKonto.getHistoria()) {
+            historiaArea.append(wpis + "\n");
+        }
+    }
+
+    private String generujNominaly(double kwota) {
+        StringBuilder sb = new StringBuilder();
+        int pozostale = (int) kwota;
+        for (int nom : NOMINALY) {
+            int ile = pozostale / nom;
+            if (ile > 0) {
+                sb.append(ile).append("×").append(nom).append(" zł, ");
+                pozostale %= nom;
+            }
+        }
+        return sb.length() > 0 ? sb.substring(0, sb.length() - 2) : "brak banknotów";
     }
 
     private void wykonajWplate() {
@@ -134,7 +251,9 @@ public class BANKOMAT extends JFrame {
             double kwota = Double.parseDouble(kwotaStr);
             aktualneKonto.wplata(kwota);
             zapiszStan();
-            JOptionPane.showMessageDialog(this, "Wpłacono " + kwota + " zł");
+            odswiezSaldo();
+            odswiezHistorie();
+            JOptionPane.showMessageDialog(this, "✅ Wpłacono " + kwota + " zł");
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this, "Nieprawidłowa kwota!");
         }
@@ -145,11 +264,14 @@ public class BANKOMAT extends JFrame {
         if (kwotaStr == null) return;
         try {
             double kwota = Double.parseDouble(kwotaStr);
-            if (aktualneKonto.wyplata(kwota)) {
+            String nominals = generujNominaly(kwota);
+            if (aktualneKonto.wyplata(kwota, nominals)) {
                 zapiszStan();
-                JOptionPane.showMessageDialog(this, "Wypłacono " + kwota + " zł");
+                odswiezSaldo();
+                odswiezHistorie();
+                JOptionPane.showMessageDialog(this, "💸 Wypłacono " + kwota + " zł\nNominały: " + nominals);
             } else {
-                JOptionPane.showMessageDialog(this, "Brak środków!");
+                JOptionPane.showMessageDialog(this, "❌ Brak środków!");
             }
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this, "Nieprawidłowa kwota!");
@@ -157,11 +279,11 @@ public class BANKOMAT extends JFrame {
     }
 
     private void wykonajPrzelew() {
-        String numerDocelowy = JOptionPane.showInputDialog(this, "Podaj numer karty odbiorcy:");
+        String numerDocelowy = JOptionPane.showInputDialog(this, "Podaj numer karty odbiorcy (XXXX-XXXX-XXXX-XXXX):");
         if (numerDocelowy == null) return;
 
         if (!konta.containsKey(numerDocelowy)) {
-            JOptionPane.showMessageDialog(this, "Nie znaleziono konta docelowego!");
+            JOptionPane.showMessageDialog(this, "❌ Nie znaleziono konta docelowego!");
             return;
         }
 
@@ -170,12 +292,15 @@ public class BANKOMAT extends JFrame {
 
         try {
             double kwota = Double.parseDouble(kwotaStr);
-            if (aktualneKonto.wyplata(kwota)) {
-                konta.get(numerDocelowy).wplata(kwota);
+            if (aktualneKonto.getSaldo() >= kwota) {
+                aktualneKonto.przelew(kwota, numerDocelowy);
+                konta.get(numerDocelowy).otrzymajPrzelew(kwota, aktualneKonto.getNumerKarty());
                 zapiszStan();
-                JOptionPane.showMessageDialog(this, "Przelano " + kwota + " zł do " + numerDocelowy);
+                odswiezSaldo();
+                odswiezHistorie();
+                JOptionPane.showMessageDialog(this, "✅ Przelano " + kwota + " zł do " + numerDocelowy);
             } else {
-                JOptionPane.showMessageDialog(this, "Brak środków!");
+                JOptionPane.showMessageDialog(this, "❌ Brak środków!");
             }
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this, "Nieprawidłowa kwota!");
@@ -191,11 +316,15 @@ public class BANKOMAT extends JFrame {
     private void wczytajStan() {
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(PLIK_STANU))) {
             konta = (Map<String, Konto>) ois.readObject();
+            for (Konto k : konta.values()) {
+                if (k.historia == null) k.historia = new ArrayList<>();
+            }
         } catch (Exception e) {
             konta = new HashMap<>();
             konta.put("1111-2222-3333-4444", new Konto("1111-2222-3333-4444", "1234", 1500));
             konta.put("5555-6666-7777-8888", new Konto("5555-6666-7777-8888", "5678", 3000));
             konta.put("9999-0000-1111-2222", new Konto("9999-0000-1111-2222", "4321", 500));
+            zapiszStan();
         }
     }
 
