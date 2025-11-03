@@ -8,14 +8,13 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 
-// ---- Klasa Konto ----
 class Konto implements Serializable {
     private static final long serialVersionUID = 2L;
 
     String numerKarty;
     String pin;
     double saldo;
-    java.util.List<String> historia; // jawne użycie java.util.List
+    java.util.List<String> historia; 
 
     public Konto(String numerKarty, String pin, double saldo) {
         this.numerKarty = numerKarty;
@@ -74,7 +73,6 @@ class Konto implements Serializable {
     }
 }
 
-// ---- Klasa Bankomat ----
 public class BANKOMAT extends JFrame {
     private static final long serialVersionUID = 1L;
 
@@ -103,7 +101,6 @@ public class BANKOMAT extends JFrame {
         utworzPanelLogowania();
     }
 
-    // ----------------- PANEL LOGOWANIA -----------------
     private void utworzPanelLogowania() {
         panelLogowania = new JPanel();
         panelLogowania.setLayout(new BoxLayout(panelLogowania, BoxLayout.Y_AXIS));
@@ -169,7 +166,6 @@ public class BANKOMAT extends JFrame {
         }
     }
 
-    // ----------------- PANEL MENU -----------------
     private void pokazMenu() {
         panelMenu = new JPanel(new BorderLayout(10, 10));
         panelMenu.setBorder(new EmptyBorder(15, 15, 15, 15));
@@ -340,3 +336,4 @@ public class BANKOMAT extends JFrame {
         SwingUtilities.invokeLater(() -> new BANKOMAT().setVisible(true));
     }
 }
+
